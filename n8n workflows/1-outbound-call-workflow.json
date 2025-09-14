@@ -1,0 +1,324 @@
+{
+  "name": "KnightCall AI - Outbound Call Handler",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "outbound-call",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "8c0c2c3e-8c0a-4c0a-8c0a-8c0a8c0a8c0a",
+      "name": "Webhook - Outbound Call",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        340,
+        300
+      ],
+      "webhookId": "outbound-call"
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/calls",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.SUPABASE_SERVICE_KEY }}"
+            },
+            {
+              "name": "apikey",
+              "value": "{{ $env.SUPABASE_ANON_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "from_number",
+              "value": "={{ $json.from_number }}"
+            },
+            {
+              "name": "to_number",
+              "value": "={{ $json.to_number }}"
+            },
+            {
+              "name": "agent_id",
+              "value": "={{ $json.agent_id }}"
+            },
+            {
+              "name": "agent_name",
+              "value": "={{ $json.agent_name }}"
+            },
+            {
+              "name": "customer_name",
+              "value": "={{ $json.customer_name }}"
+            },
+            {
+              "name": "call_source",
+              "value": "={{ $json.call_source }}"
+            },
+            {
+              "name": "status",
+              "value": "initiated"
+            },
+            {
+              "name": "created_at",
+              "value": "={{ new Date().toISOString() }}"
+            },
+            {
+              "name": "updated_at",
+              "value": "={{ new Date().toISOString() }}"
+            }
+          ]
+        }
+      },
+      "id": "1a1a1a1a-1a1a-1a1a-1a1a-1a1a1a1a1a1a",
+      "name": "Create Call Record",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        560,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.RETELL_API_URL }}/create-phone-call",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpBasicAuth", 
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.RETELL_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "from_number",
+              "value": "={{ $json.from_number }}"
+            },
+            {
+              "name": "to_number",
+              "value": "={{ $json.to_number }}"
+            },
+            {
+              "name": "override_agent_id",
+              "value": "={{ $json.agent_id }}"
+            },
+            {
+              "name": "retell_llm_dynamic_variables",
+              "value": "={{ { customer_name: $json.customer_name, call_source: $json.call_source } }}"
+            }
+          ]
+        }
+      },
+      "id": "2b2b2b2b-2b2b-2b2b-2b2b-2b2b2b2b2b2b",
+      "name": "Initiate Retell Call",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        780,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/calls?id=eq.{{ $('Create Call Record').first().json.id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.SUPABASE_SERVICE_KEY }}"
+            },
+            {
+              "name": "apikey",
+              "value": "{{ $env.SUPABASE_ANON_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "retell_call_id",
+              "value": "={{ $json.call_id }}"
+            },
+            {
+              "name": "status",
+              "value": "={{ $json.call_status || 'ongoing' }}"
+            },
+            {
+              "name": "updated_at",
+              "value": "={{ new Date().toISOString() }}"
+            }
+          ]
+        },
+        "httpMethod": "PATCH"
+      },
+      "id": "3c3c3c3c-3c3c-3c3c-3c3c-3c3c3c3c3c3c",
+      "name": "Update Call with Retell ID",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1000,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, call_id: $('Create Call Record').first().json.id, retell_call_id: $('Initiate Retell Call').first().json.call_id, message: 'Call initiated successfully', timestamp: new Date().toISOString() } }}"
+      },
+      "id": "4d4d4d4d-4d4d-4d4d-4d4d-4d4d4d4d4d4d",
+      "name": "Success Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1220,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: false, error: $json.message || 'Failed to initiate call', timestamp: new Date().toISOString() } }}",
+        "responseCode": 500
+      },
+      "id": "5e5e5e5e-5e5e-5e5e-5e5e-5e5e5e5e5e5e",
+      "name": "Error Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1000,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/agents?id=eq.{{ $json.agent_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.SUPABASE_SERVICE_KEY }}"
+            },
+            {
+              "name": "apikey",
+              "value": "{{ $env.SUPABASE_ANON_KEY }}"
+            }
+          ]
+        }
+      },
+      "id": "6f6f6f6f-6f6f-6f6f-6f6f-6f6f6f6f6f6f",
+      "name": "Validate Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        560,
+        200
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook - Outbound Call": {
+      "main": [
+        [
+          {
+            "node": "Validate Agent",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Create Call Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Call Record": {
+      "main": [
+        [
+          {
+            "node": "Initiate Retell Call",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Initiate Retell Call": {
+      "main": [
+        [
+          {
+            "node": "Update Call with Retell ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ],
+      "error": [
+        [
+          {
+            "node": "Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Call with Retell ID": {
+      "main": [
+        [
+          {
+            "node": "Success Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "timezone": "UTC"
+  },
+  "versionId": "1"
+}

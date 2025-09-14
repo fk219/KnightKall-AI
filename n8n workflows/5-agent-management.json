@@ -1,0 +1,681 @@
+{
+  "name": "KnightCall AI - Agent Management Sync",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "agent-sync",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "agent-sync-webhook-001",
+      "name": "Webhook - Agent Operations",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        340,
+        300
+      ],
+      "webhookId": "agent-sync"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "create-agent",
+              "leftValue": "={{ $json.action }}",
+              "rightValue": "create",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "update-agent",
+              "leftValue": "={{ $json.action }}",
+              "rightValue": "update",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "delete-agent",
+              "leftValue": "={{ $json.action }}",
+              "rightValue": "delete",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "sync-agents",
+              "leftValue": "={{ $json.action }}",
+              "rightValue": "sync",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "agent-action-switch-001",
+      "name": "Route Agent Action",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        560,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.RETELL_API_URL }}/agent",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpBasicAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.RETELL_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "agent_name",
+              "value": "={{ $json.agent.name }}"
+            },
+            {
+              "name": "voice_id",
+              "value": "={{ $json.agent.voice_id || '11labs-Adrian' }}"
+            },
+            {
+              "name": "language",
+              "value": "={{ $json.agent.language || 'en-US' }}"
+            },
+            {
+              "name": "response_engine",
+              "value": "={{ $json.agent.response_engine || 'retell-llm' }}"
+            },
+            {
+              "name": "llm_websocket_url",
+              "value": "{{ $json.agent.llm_websocket_url }}"
+            },
+            {
+              "name": "begin_message",
+              "value": "{{ $json.agent.begin_message || 'Hello! I am an AI assistant. How can I help you today?' }}"
+            },
+            {
+              "name": "general_prompt",
+              "value": "{{ $json.agent.general_prompt || 'You are a helpful AI assistant. Be professional, friendly, and concise in your responses.' }}"
+            },
+            {
+              "name": "interruption_sensitivity",
+              "value": "={{ $json.agent.interruption_sensitivity || 1.0 }}"
+            },
+            {
+              "name": "responsiveness",
+              "value": "={{ $json.agent.responsiveness || 1.0 }}"
+            }
+          ]
+        }
+      },
+      "id": "create-retell-agent-001",
+      "name": "Create Retell Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        780,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/agents",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.SUPABASE_SERVICE_KEY }}"
+            },
+            {
+              "name": "apikey",
+              "value": "{{ $env.SUPABASE_ANON_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "organization_id",
+              "value": "={{ $json.agent.organization_id }}"
+            },
+            {
+              "name": "name",
+              "value": "={{ $json.agent.name }}"
+            },
+            {
+              "name": "description",
+              "value": "={{ $json.agent.description }}"
+            },
+            {
+              "name": "retell_agent_id",
+              "value": "={{ $('Create Retell Agent').first().json.agent_id }}"
+            },
+            {
+              "name": "voice_id",
+              "value": "={{ $json.agent.voice_id }}"
+            },
+            {
+              "name": "language",
+              "value": "={{ $json.agent.language }}"
+            },
+            {
+              "name": "response_engine",
+              "value": "={{ $json.agent.response_engine }}"
+            },
+            {
+              "name": "llm_websocket_url",
+              "value": "={{ $json.agent.llm_websocket_url }}"
+            },
+            {
+              "name": "interruption_sensitivity",
+              "value": "={{ $json.agent.interruption_sensitivity }}"
+            },
+            {
+              "name": "responsiveness",
+              "value": "={{ $json.agent.responsiveness }}"
+            },
+            {
+              "name": "status",
+              "value": "active"
+            },
+            {
+              "name": "created_by",
+              "value": "={{ $json.user_id }}"
+            },
+            {
+              "name": "created_at",
+              "value": "={{ new Date().toISOString() }}"
+            },
+            {
+              "name": "updated_at",
+              "value": "={{ new Date().toISOString() }}"
+            }
+          ]
+        }
+      },
+      "id": "create-supabase-agent-001",
+      "name": "Create Supabase Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1000,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.RETELL_API_URL }}/agent/{{ $json.agent.retell_agent_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpBasicAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.RETELL_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "agent_name",
+              "value": "={{ $json.agent.name }}"
+            },
+            {
+              "name": "voice_id",
+              "value": "={{ $json.agent.voice_id }}"
+            },
+            {
+              "name": "language",
+              "value": "={{ $json.agent.language }}"
+            },
+            {
+              "name": "interruption_sensitivity",
+              "value": "={{ $json.agent.interruption_sensitivity }}"
+            },
+            {
+              "name": "responsiveness",
+              "value": "={{ $json.agent.responsiveness }}"
+            }
+          ]
+        },
+        "httpMethod": "PATCH"
+      },
+      "id": "update-retell-agent-001",
+      "name": "Update Retell Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        780,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/agents?id=eq.{{ $json.agent.id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.SUPABASE_SERVICE_KEY }}"
+            },
+            {
+              "name": "apikey",
+              "value": "{{ $env.SUPABASE_ANON_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "name",
+              "value": "={{ $json.agent.name }}"
+            },
+            {
+              "name": "description",
+              "value": "={{ $json.agent.description }}"
+            },
+            {
+              "name": "voice_id",
+              "value": "={{ $json.agent.voice_id }}"
+            },
+            {
+              "name": "language",
+              "value": "={{ $json.agent.language }}"
+            },
+            {
+              "name": "interruption_sensitivity",
+              "value": "={{ $json.agent.interruption_sensitivity }}"
+            },
+            {
+              "name": "responsiveness",
+              "value": "={{ $json.agent.responsiveness }}"
+            },
+            {
+              "name": "updated_at",
+              "value": "={{ new Date().toISOString() }}"
+            }
+          ]
+        },
+        "httpMethod": "PATCH"
+      },
+      "id": "update-supabase-agent-001",
+      "name": "Update Supabase Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1000,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.RETELL_API_URL }}/agent/{{ $json.agent.retell_agent_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpBasicAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.RETELL_API_KEY }}"
+            }
+          ]
+        },
+        "httpMethod": "DELETE"
+      },
+      "id": "delete-retell-agent-001",
+      "name": "Delete Retell Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        780,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/agents?id=eq.{{ $json.agent.id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.SUPABASE_SERVICE_KEY }}"
+            },
+            {
+              "name": "apikey",
+              "value": "{{ $env.SUPABASE_ANON_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "httpMethod": "DELETE"
+      },
+      "id": "delete-supabase-agent-001",
+      "name": "Delete Supabase Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1000,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.RETELL_API_URL }}/list-agents",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpBasicAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.RETELL_API_KEY }}"
+            }
+          ]
+        }
+      },
+      "id": "get-retell-agents-001",
+      "name": "Get Retell Agents",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        780,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/agents?organization_id=eq.{{ $json.organization_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.SUPABASE_SERVICE_KEY }}"
+            },
+            {
+              "name": "apikey",
+              "value": "{{ $env.SUPABASE_ANON_KEY }}"
+            }
+          ]
+        }
+      },
+      "id": "get-supabase-agents-001",
+      "name": "Get Supabase Agents",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1000,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Sync agents between Retell and Supabase\nconst retellAgents = $('Get Retell Agents').first().json;\nconst supabaseAgents = $('Get Supabase Agents').first().json;\n\n// Create maps for easy lookup\nconst retellMap = new Map();\nconst supabaseMap = new Map();\n\nretellAgents.forEach(agent => {\n  retellMap.set(agent.agent_id, agent);\n});\n\nsupabaseAgents.forEach(agent => {\n  supabaseMap.set(agent.retell_agent_id, agent);\n});\n\nconst syncResults = {\n  synced: [],\n  missing_in_supabase: [],\n  missing_in_retell: [],\n  errors: []\n};\n\n// Find agents in Retell but not in Supabase\nretellAgents.forEach(retellAgent => {\n  if (!supabaseMap.has(retellAgent.agent_id)) {\n    syncResults.missing_in_supabase.push({\n      retell_agent_id: retellAgent.agent_id,\n      name: retellAgent.agent_name,\n      status: 'needs_import'\n    });\n  } else {\n    syncResults.synced.push({\n      retell_agent_id: retellAgent.agent_id,\n      supabase_id: supabaseMap.get(retellAgent.agent_id).id,\n      status: 'in_sync'\n    });\n  }\n});\n\n// Find agents in Supabase but not in Retell\nsupabaseAgents.forEach(supabaseAgent => {\n  if (supabaseAgent.retell_agent_id && !retellMap.has(supabaseAgent.retell_agent_id)) {\n    syncResults.missing_in_retell.push({\n      supabase_id: supabaseAgent.id,\n      name: supabaseAgent.name,\n      retell_agent_id: supabaseAgent.retell_agent_id,\n      status: 'orphaned'\n    });\n  }\n});\n\nreturn [{\n  json: {\n    sync_completed_at: new Date().toISOString(),\n    total_retell_agents: retellAgents.length,\n    total_supabase_agents: supabaseAgents.length,\n    sync_results: syncResults\n  }\n}];"
+      },
+      "id": "sync-agents-logic-001",
+      "name": "Process Agent Sync",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1220,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, action: $json.action, data: $json, timestamp: new Date().toISOString() } }}"
+      },
+      "id": "agent-success-response-001",
+      "name": "Success Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1220,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: false, error: $json.message || 'Agent operation failed', timestamp: new Date().toISOString() } }}",
+        "responseCode": 500
+      },
+      "id": "agent-error-response-001",
+      "name": "Error Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1000,
+        600
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook - Agent Operations": {
+      "main": [
+        [
+          {
+            "node": "Route Agent Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Agent Action": {
+      "main": [
+        [
+          {
+            "node": "Create Retell Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update Retell Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Delete Retell Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Retell Agents",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Retell Agent": {
+      "main": [
+        [
+          {
+            "node": "Create Supabase Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ],
+      "error": [
+        [
+          {
+            "node": "Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Supabase Agent": {
+      "main": [
+        [
+          {
+            "node": "Success Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Retell Agent": {
+      "main": [
+        [
+          {
+            "node": "Update Supabase Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Supabase Agent": {
+      "main": [
+        [
+          {
+            "node": "Success Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete Retell Agent": {
+      "main": [
+        [
+          {
+            "node": "Delete Supabase Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete Supabase Agent": {
+      "main": [
+        [
+          {
+            "node": "Success Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Retell Agents": {
+      "main": [
+        [
+          {
+            "node": "Get Supabase Agents",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Supabase Agents": {
+      "main": [
+        [
+          {
+            "node": "Process Agent Sync",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Agent Sync": {
+      "main": [
+        [
+          {
+            "node": "Success Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "timezone": "UTC"
+  },
+  "versionId": "1"
+}

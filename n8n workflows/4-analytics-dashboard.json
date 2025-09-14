@@ -1,0 +1,421 @@
+{
+  "name": "KnightCall AI - Analytics & Reporting Dashboard",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "analytics",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "analytics-webhook-001",
+      "name": "Webhook - Analytics Request",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        340,
+        300
+      ],
+      "webhookId": "analytics"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "daily-stats",
+              "leftValue": "={{ $parameter.query.type }}",
+              "rightValue": "daily",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "weekly-stats",
+              "leftValue": "={{ $parameter.query.type }}",
+              "rightValue": "weekly",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "monthly-stats",
+              "leftValue": "={{ $parameter.query.type }}",
+              "rightValue": "monthly",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "real-time",
+              "leftValue": "={{ $parameter.query.type }}",
+              "rightValue": "realtime",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "analytics-switch-001",
+      "name": "Route Analytics Type",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        560,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/calls?created_at=gte.{{ new Date(new Date().setHours(0,0,0,0)).toISOString() }}&created_at=lt.{{ new Date(new Date().setHours(24,0,0,0)).toISOString() }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.SUPABASE_SERVICE_KEY }}"
+            },
+            {
+              "name": "apikey",
+              "value": "{{ $env.SUPABASE_ANON_KEY }}"
+            }
+          ]
+        }
+      },
+      "id": "daily-calls-001",
+      "name": "Get Daily Calls",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        780,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/batch_calls?created_at=gte.{{ new Date(new Date().setDate(new Date().getDate() - 7)).toISOString() }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.SUPABASE_SERVICE_KEY }}"
+            },
+            {
+              "name": "apikey",
+              "value": "{{ $env.SUPABASE_ANON_KEY }}"
+            }
+          ]
+        }
+      },
+      "id": "weekly-batches-001",
+      "name": "Get Weekly Batches",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        780,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/calls?created_at=gte.{{ new Date(new Date().setDate(new Date().getDate() - 30)).toISOString() }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.SUPABASE_SERVICE_KEY }}"
+            },
+            {
+              "name": "apikey",
+              "value": "{{ $env.SUPABASE_ANON_KEY }}"
+            }
+          ]
+        }
+      },
+      "id": "monthly-calls-001",
+      "name": "Get Monthly Calls",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        780,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/calls?status=in.('initiated','in_progress')",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.SUPABASE_SERVICE_KEY }}"
+            },
+            {
+              "name": "apikey",
+              "value": "{{ $env.SUPABASE_ANON_KEY }}"
+            }
+          ]
+        }
+      },
+      "id": "realtime-calls-001",
+      "name": "Get Active Calls",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        780,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Daily Analytics Processing\nconst calls = $input.all();\nconst now = new Date();\n\n// Calculate metrics\nconst totalCalls = calls.length;\nconst completedCalls = calls.filter(call => call.json.status === 'completed').length;\nconst failedCalls = calls.filter(call => call.json.status === 'failed').length;\nconst inProgressCalls = calls.filter(call => call.json.status === 'in_progress').length;\n\n// Calculate average duration\nconst completedCallsWithDuration = calls.filter(call => call.json.duration_seconds && call.json.status === 'completed');\nconst avgDuration = completedCallsWithDuration.length > 0 \n  ? Math.round(completedCallsWithDuration.reduce((sum, call) => sum + call.json.duration_seconds, 0) / completedCallsWithDuration.length)\n  : 0;\n\n// Success rate\nconst successRate = totalCalls > 0 ? Math.round((completedCalls / totalCalls) * 100) : 0;\n\n// Hourly breakdown\nconst hourlyBreakdown = {};\nfor (let hour = 0; hour < 24; hour++) {\n  hourlyBreakdown[hour] = 0;\n}\n\ncalls.forEach(call => {\n  if (call.json.created_at) {\n    const hour = new Date(call.json.created_at).getHours();\n    hourlyBreakdown[hour]++;\n  }\n});\n\nreturn [{\n  json: {\n    period: 'daily',\n    date: now.toISOString().split('T')[0],\n    metrics: {\n      total_calls: totalCalls,\n      completed_calls: completedCalls,\n      failed_calls: failedCalls,\n      in_progress_calls: inProgressCalls,\n      success_rate: successRate,\n      average_duration: avgDuration\n    },\n    hourly_breakdown: hourlyBreakdown,\n    generated_at: now.toISOString()\n  }\n}];"
+      },
+      "id": "daily-analytics-001",
+      "name": "Process Daily Analytics",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1000,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Weekly Analytics Processing\nconst batches = $input.all();\nconst now = new Date();\n\n// Calculate batch metrics\nconst totalBatches = batches.length;\nconst runningBatches = batches.filter(batch => batch.json.status === 'running').length;\nconst completedBatches = batches.filter(batch => batch.json.status === 'completed').length;\nconst queuedBatches = batches.filter(batch => batch.json.status === 'queued').length;\n\n// Calculate total tasks across all batches\nconst totalTasks = batches.reduce((sum, batch) => sum + (batch.json.total_tasks || 0), 0);\n\n// Daily breakdown for the week\nconst dailyBreakdown = {};\nfor (let i = 6; i >= 0; i--) {\n  const date = new Date();\n  date.setDate(date.getDate() - i);\n  const dateStr = date.toISOString().split('T')[0];\n  dailyBreakdown[dateStr] = {\n    batches: 0,\n    tasks: 0\n  };\n}\n\nbatches.forEach(batch => {\n  if (batch.json.created_at) {\n    const dateStr = batch.json.created_at.split('T')[0];\n    if (dailyBreakdown[dateStr]) {\n      dailyBreakdown[dateStr].batches++;\n      dailyBreakdown[dateStr].tasks += batch.json.total_tasks || 0;\n    }\n  }\n});\n\nreturn [{\n  json: {\n    period: 'weekly',\n    week_start: new Date(now.setDate(now.getDate() - 7)).toISOString().split('T')[0],\n    week_end: new Date().toISOString().split('T')[0],\n    metrics: {\n      total_batches: totalBatches,\n      running_batches: runningBatches,\n      completed_batches: completedBatches,\n      queued_batches: queuedBatches,\n      total_tasks: totalTasks\n    },\n    daily_breakdown: dailyBreakdown,\n    generated_at: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "weekly-analytics-001",
+      "name": "Process Weekly Analytics",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1000,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Monthly Analytics Processing\nconst calls = $input.all();\nconst now = new Date();\n\n// Agent performance analysis\nconst agentStats = {};\ncalls.forEach(call => {\n  const agentId = call.json.agent_id;\n  if (agentId) {\n    if (!agentStats[agentId]) {\n      agentStats[agentId] = {\n        agent_name: call.json.agent_name || agentId,\n        total_calls: 0,\n        completed_calls: 0,\n        total_duration: 0,\n        success_rate: 0\n      };\n    }\n    agentStats[agentId].total_calls++;\n    if (call.json.status === 'completed') {\n      agentStats[agentId].completed_calls++;\n      agentStats[agentId].total_duration += call.json.duration_seconds || 0;\n    }\n    agentStats[agentId].success_rate = Math.round((agentStats[agentId].completed_calls / agentStats[agentId].total_calls) * 100);\n  }\n});\n\n// Monthly trends (daily aggregation)\nconst monthlyTrends = {};\nfor (let i = 29; i >= 0; i--) {\n  const date = new Date();\n  date.setDate(date.getDate() - i);\n  const dateStr = date.toISOString().split('T')[0];\n  monthlyTrends[dateStr] = {\n    calls: 0,\n    completed: 0,\n    duration: 0\n  };\n}\n\ncalls.forEach(call => {\n  if (call.json.created_at) {\n    const dateStr = call.json.created_at.split('T')[0];\n    if (monthlyTrends[dateStr]) {\n      monthlyTrends[dateStr].calls++;\n      if (call.json.status === 'completed') {\n        monthlyTrends[dateStr].completed++;\n        monthlyTrends[dateStr].duration += call.json.duration_seconds || 0;\n      }\n    }\n  }\n});\n\nreturn [{\n  json: {\n    period: 'monthly',\n    month_start: new Date(now.setDate(now.getDate() - 30)).toISOString().split('T')[0],\n    month_end: new Date().toISOString().split('T')[0],\n    agent_performance: agentStats,\n    monthly_trends: monthlyTrends,\n    generated_at: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "monthly-analytics-001",
+      "name": "Process Monthly Analytics",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1000,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Real-time Analytics Processing\nconst activeCalls = $input.all();\nconst now = new Date();\n\n// Current system status\nconst systemStatus = {\n  active_calls: activeCalls.length,\n  calls_in_progress: activeCalls.filter(call => call.json.status === 'in_progress').length,\n  calls_initiated: activeCalls.filter(call => call.json.status === 'initiated').length,\n  system_load: Math.min(100, Math.round((activeCalls.length / 50) * 100)) // Assuming 50 concurrent calls max\n};\n\n// Call distribution by agent\nconst agentDistribution = {};\nactiveCalls.forEach(call => {\n  const agentId = call.json.agent_id;\n  if (agentId) {\n    agentDistribution[agentId] = (agentDistribution[agentId] || 0) + 1;\n  }\n});\n\n// Recent call activity (last 5 minutes)\nconst fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);\nconst recentActivity = activeCalls.filter(call => \n  call.json.created_at && new Date(call.json.created_at) >= fiveMinutesAgo\n).map(call => ({\n  call_id: call.json.id,\n  to_number: call.json.to_number,\n  agent_name: call.json.agent_name,\n  status: call.json.status,\n  created_at: call.json.created_at\n}));\n\nreturn [{\n  json: {\n    period: 'realtime',\n    timestamp: now.toISOString(),\n    system_status: systemStatus,\n    agent_distribution: agentDistribution,\n    recent_activity: recentActivity,\n    refresh_interval: 30 // seconds\n  }\n}];"
+      },
+      "id": "realtime-analytics-001",
+      "name": "Process Real-time Analytics",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1000,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}"
+      },
+      "id": "analytics-response-001",
+      "name": "Analytics Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1220,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { error: 'Invalid analytics type. Use: daily, weekly, monthly, or realtime', timestamp: new Date().toISOString() } }}",
+        "responseCode": 400
+      },
+      "id": "analytics-error-001",
+      "name": "Invalid Type Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        780,
+        600
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook - Analytics Request": {
+      "main": [
+        [
+          {
+            "node": "Route Analytics Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Analytics Type": {
+      "main": [
+        [
+          {
+            "node": "Get Daily Calls",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Weekly Batches",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Monthly Calls",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Active Calls",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ],
+      "fallback": [
+        [
+          {
+            "node": "Invalid Type Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Daily Calls": {
+      "main": [
+        [
+          {
+            "node": "Process Daily Analytics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Weekly Batches": {
+      "main": [
+        [
+          {
+            "node": "Process Weekly Analytics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Monthly Calls": {
+      "main": [
+        [
+          {
+            "node": "Process Monthly Analytics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Active Calls": {
+      "main": [
+        [
+          {
+            "node": "Process Real-time Analytics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Daily Analytics": {
+      "main": [
+        [
+          {
+            "node": "Analytics Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Weekly Analytics": {
+      "main": [
+        [
+          {
+            "node": "Analytics Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Monthly Analytics": {
+      "main": [
+        [
+          {
+            "node": "Analytics Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Real-time Analytics": {
+      "main": [
+        [
+          {
+            "node": "Analytics Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "timezone": "UTC"
+  },
+  "versionId": "1"
+}

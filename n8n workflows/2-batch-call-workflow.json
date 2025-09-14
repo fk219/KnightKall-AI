@@ -1,0 +1,531 @@
+{
+  "name": "KnightCall AI - Batch Call Processor",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "batch-call",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "batch-webhook-001",
+      "name": "Webhook - Batch Call",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        340,
+        300
+      ],
+      "webhookId": "batch-call"
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/batch_calls",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.SUPABASE_SERVICE_KEY }}"
+            },
+            {
+              "name": "apikey",
+              "value": "{{ $env.SUPABASE_ANON_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "name",
+              "value": "={{ $json.name }}"
+            },
+            {
+              "name": "from_number",
+              "value": "={{ $json.from_number }}"
+            },
+            {
+              "name": "total_tasks",
+              "value": "={{ Array.isArray($json.tasks) ? $json.tasks.length : 0 }}"
+            },
+            {
+              "name": "status",
+              "value": "queued"
+            },
+            {
+              "name": "created_at",
+              "value": "={{ new Date().toISOString() }}"
+            },
+            {
+              "name": "updated_at",
+              "value": "={{ new Date().toISOString() }}"
+            },
+            {
+              "name": "trigger_timestamp",
+              "value": "={{ $json.trigger_timestamp }}"
+            }
+          ]
+        }
+      },
+      "id": "batch-create-001",
+      "name": "Create Batch Record",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        560,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "batch-split-001",
+      "name": "Split Tasks",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        780,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/batch_call_tasks",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.SUPABASE_SERVICE_KEY }}"
+            },
+            {
+              "name": "apikey",
+              "value": "{{ $env.SUPABASE_ANON_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "batch_call_id",
+              "value": "={{ $('Create Batch Record').first().json.id }}"
+            },
+            {
+              "name": "to_number",
+              "value": "={{ $json.to_number }}"
+            },
+            {
+              "name": "customer_name",
+              "value": "={{ $json.retell_llm_dynamic_variables?.customer_name || 'Customer' }}"
+            },
+            {
+              "name": "status",
+              "value": "queued"
+            },
+            {
+              "name": "created_at",
+              "value": "={{ new Date().toISOString() }}"
+            }
+          ]
+        }
+      },
+      "id": "batch-task-001",
+      "name": "Create Task Record",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1000,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 5,
+        "unit": "seconds"
+      },
+      "id": "batch-wait-001",
+      "name": "Rate Limit Wait",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [
+        1220,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.RETELL_API_URL }}/create-phone-call",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpBasicAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.RETELL_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "from_number",
+              "value": "={{ $('Create Batch Record').first().json.from_number }}"
+            },
+            {
+              "name": "to_number",
+              "value": "={{ $json.to_number }}"
+            },
+            {
+              "name": "override_agent_id",
+              "value": "={{ $env.DEFAULT_AGENT_ID }}"
+            },
+            {
+              "name": "retell_llm_dynamic_variables",
+              "value": "={{ $json.retell_llm_dynamic_variables }}"
+            }
+          ]
+        }
+      },
+      "id": "batch-retell-001",
+      "name": "Execute Retell Call",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1440,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/batch_call_tasks?id=eq.{{ $('Create Task Record').first().json.id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.SUPABASE_SERVICE_KEY }}"
+            },
+            {
+              "name": "apikey",
+              "value": "{{ $env.SUPABASE_ANON_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "retell_call_id",
+              "value": "={{ $json.call_id }}"
+            },
+            {
+              "name": "status",
+              "value": "initiated"
+            },
+            {
+              "name": "updated_at",
+              "value": "={{ new Date().toISOString() }}"
+            },
+            {
+              "name": "started_at",
+              "value": "={{ new Date().toISOString() }}"
+            }
+          ]
+        },
+        "httpMethod": "PATCH"
+      },
+      "id": "batch-update-001",
+      "name": "Update Task Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1660,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/batch_call_tasks?id=eq.{{ $('Create Task Record').first().json.id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.SUPABASE_SERVICE_KEY }}"
+            },
+            {
+              "name": "apikey",
+              "value": "{{ $env.SUPABASE_ANON_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "status",
+              "value": "failed"
+            },
+            {
+              "name": "error_message",
+              "value": "={{ $json.message || 'Failed to initiate call' }}"
+            },
+            {
+              "name": "updated_at",
+              "value": "={{ new Date().toISOString() }}"
+            }
+          ]
+        },
+        "httpMethod": "PATCH"
+      },
+      "id": "batch-error-001",
+      "name": "Mark Task Failed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1440,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/batch_calls?id=eq.{{ $('Create Batch Record').first().json.id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.SUPABASE_SERVICE_KEY }}"
+            },
+            {
+              "name": "apikey",
+              "value": "{{ $env.SUPABASE_ANON_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "status",
+              "value": "running"
+            },
+            {
+              "name": "started_at",
+              "value": "={{ new Date().toISOString() }}"
+            },
+            {
+              "name": "updated_at",
+              "value": "={{ new Date().toISOString() }}"
+            }
+          ]
+        },
+        "httpMethod": "PATCH"
+      },
+      "id": "batch-status-001",
+      "name": "Update Batch Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1880,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, batch_id: $('Create Batch Record').first().json.id, total_tasks: $('Create Batch Record').first().json.total_tasks, message: 'Batch call created successfully', timestamp: new Date().toISOString() } }}"
+      },
+      "id": "batch-response-001",
+      "name": "Success Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        560,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: false, error: $json.message || 'Failed to create batch call', timestamp: new Date().toISOString() } }}",
+        "responseCode": 500
+      },
+      "id": "batch-error-response-001",
+      "name": "Error Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        560,
+        480
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook - Batch Call": {
+      "main": [
+        [
+          {
+            "node": "Create Batch Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Batch Record": {
+      "main": [
+        [
+          {
+            "node": "Success Response",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Split Tasks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ],
+      "error": [
+        [
+          {
+            "node": "Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Tasks": {
+      "main": [
+        [
+          {
+            "node": "Create Task Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Task Record": {
+      "main": [
+        [
+          {
+            "node": "Rate Limit Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rate Limit Wait": {
+      "main": [
+        [
+          {
+            "node": "Execute Retell Call",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Retell Call": {
+      "main": [
+        [
+          {
+            "node": "Update Task Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ],
+      "error": [
+        [
+          {
+            "node": "Mark Task Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Task Status": {
+      "main": [
+        [
+          {
+            "node": "Update Batch Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "timezone": "UTC"
+  },
+  "versionId": "1"
+}

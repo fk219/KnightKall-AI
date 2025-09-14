@@ -1,0 +1,481 @@
+{
+  "name": "KnightCall AI - Call Event Handler & Data Sync",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "call-event",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "event-webhook-001",
+      "name": "Webhook - Call Events",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        340,
+        300
+      ],
+      "webhookId": "call-event"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "call-started",
+              "leftValue": "={{ $json.event }}",
+              "rightValue": "call_started",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "call-ended",
+              "leftValue": "={{ $json.event }}",
+              "rightValue": "call_ended",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "call-analyzed",
+              "leftValue": "={{ $json.event }}",
+              "rightValue": "call_analyzed",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "event-switch-001",
+      "name": "Route Event Type",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        560,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/calls?retell_call_id=eq.{{ $json.call.call_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.SUPABASE_SERVICE_KEY }}"
+            },
+            {
+              "name": "apikey",
+              "value": "{{ $env.SUPABASE_ANON_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "status",
+              "value": "in_progress"
+            },
+            {
+              "name": "started_at",
+              "value": "={{ $json.timestamp }}"
+            },
+            {
+              "name": "updated_at",
+              "value": "={{ new Date().toISOString() }}"
+            }
+          ]
+        },
+        "httpMethod": "PATCH"
+      },
+      "id": "call-started-001",
+      "name": "Update Call Started",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        780,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/calls?retell_call_id=eq.{{ $json.call.call_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.SUPABASE_SERVICE_KEY }}"
+            },
+            {
+              "name": "apikey",
+              "value": "{{ $env.SUPABASE_ANON_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "status",
+              "value": "={{ $json.call.end_reason || 'completed' }}"
+            },
+            {
+              "name": "ended_at",
+              "value": "={{ $json.timestamp }}"
+            },
+            {
+              "name": "duration_seconds",
+              "value": "={{ $json.call.call_length_seconds }}"
+            },
+            {
+              "name": "end_reason",
+              "value": "={{ $json.call.end_reason }}"
+            },
+            {
+              "name": "updated_at",
+              "value": "={{ new Date().toISOString() }}"
+            }
+          ]
+        },
+        "httpMethod": "PATCH"
+      },
+      "id": "call-ended-001",
+      "name": "Update Call Ended",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        780,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/call_analytics",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.SUPABASE_SERVICE_KEY }}"
+            },
+            {
+              "name": "apikey",
+              "value": "{{ $env.SUPABASE_ANON_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "retell_call_id",
+              "value": "={{ $json.call.call_id }}"
+            },
+            {
+              "name": "transcript",
+              "value": "={{ JSON.stringify($json.call.transcript) }}"
+            },
+            {
+              "name": "recording_url",
+              "value": "={{ $json.call.recording_url }}"
+            },
+            {
+              "name": "sentiment_analysis",
+              "value": "={{ JSON.stringify($json.call.analysis) }}"
+            },
+            {
+              "name": "call_summary",
+              "value": "={{ $json.call.call_summary }}"
+            },
+            {
+              "name": "custom_analysis_data",
+              "value": "={{ JSON.stringify($json.call.custom_analysis_data) }}"
+            },
+            {
+              "name": "created_at",
+              "value": "={{ new Date().toISOString() }}"
+            }
+          ]
+        }
+      },
+      "id": "call-analyzed-001",
+      "name": "Store Call Analytics",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        780,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/calls?retell_call_id=eq.{{ $json.call.call_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.SUPABASE_SERVICE_KEY }}"
+            },
+            {
+              "name": "apikey",
+              "value": "{{ $env.SUPABASE_ANON_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "analysis_completed",
+              "value": true
+            },
+            {
+              "name": "updated_at",
+              "value": "={{ new Date().toISOString() }}"
+            }
+          ]
+        },
+        "httpMethod": "PATCH"
+      },
+      "id": "call-analysis-flag-001",
+      "name": "Mark Analysis Complete",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1000,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/batch_call_tasks?retell_call_id=eq.{{ $json.call.call_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.SUPABASE_SERVICE_KEY }}"
+            },
+            {
+              "name": "apikey",
+              "value": "{{ $env.SUPABASE_ANON_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "status",
+              "value": "={{ $json.call.end_reason === 'user_hangup' || $json.call.end_reason === 'agent_hangup' ? 'completed' : $json.call.end_reason }}"
+            },
+            {
+              "name": "completed_at",
+              "value": "={{ $json.timestamp }}"
+            },
+            {
+              "name": "duration_seconds",
+              "value": "={{ $json.call.call_length_seconds }}"
+            },
+            {
+              "name": "success",
+              "value": "={{ $json.call.call_length_seconds > 30 ? true : false }}"
+            },
+            {
+              "name": "updated_at",
+              "value": "={{ new Date().toISOString() }}"
+            }
+          ]
+        },
+        "httpMethod": "PATCH"
+      },
+      "id": "batch-task-update-001",
+      "name": "Update Batch Task",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1000,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, event: $json.event, call_id: $json.call.call_id, processed_at: new Date().toISOString() } }}"
+      },
+      "id": "event-response-001",
+      "name": "Event Processed Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1220,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook - Call Events": {
+      "main": [
+        [
+          {
+            "node": "Route Event Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Event Type": {
+      "main": [
+        [
+          {
+            "node": "Update Call Started",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update Call Ended",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Store Call Analytics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Call Started": {
+      "main": [
+        [
+          {
+            "node": "Event Processed Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Call Ended": {
+      "main": [
+        [
+          {
+            "node": "Update Batch Task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Call Analytics": {
+      "main": [
+        [
+          {
+            "node": "Mark Analysis Complete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Analysis Complete": {
+      "main": [
+        [
+          {
+            "node": "Event Processed Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Batch Task": {
+      "main": [
+        [
+          {
+            "node": "Event Processed Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "timezone": "UTC"
+  },
+  "versionId": "1"
+}
